@@ -1,0 +1,6 @@
+{
+  "siteName": "MEA-Fusion SPA",
+  "defaultLandingPage": "index.html",
+  "compiledPath": "./dist",
+  "rootPath": "."
+}

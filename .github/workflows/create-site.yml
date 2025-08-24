@@ -1,0 +1,43 @@
+
+name: Create Power Pages SPA (one-time)
+on:
+  workflow_dispatch:
+    inputs:
+      siteName:
+        description: 'Display name for your Power Pages site'
+        required: true
+        type: string
+      rootPath:
+        description: 'Local folder that has your site source files'
+        required: false
+        default: '.'
+        type: string
+      compiledPath:
+        description: 'Path to compiled assets (build output folder)'
+        required: false
+        default: 'dist'
+        type: string
+jobs:
+  create:
+    runs-on: windows-latest
+    steps:
+      - name: Configure Git for Windows
+        run: |
+          git config --global core.longpaths true
+          git config --global core.symlinks false
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - uses: actions/setup-dotnet@v4
+      - name: Install PAC CLI
+        run: dotnet tool update -g Microsoft.PowerApps.CLI.Tool
+      - name: Install dependencies
+        run: npm install
+      - name: Build SPA
+        run: npm run build
+      - name: PAC Auth (Service Principal)
+        run: |
+          pac auth create --kind DATAVERSE --url "${{ secrets.ENV_URL }}" --applicationId "${{ secrets.PP_APP_ID }}" --clientSecret "${{ secrets.PP_APP_SECRET }}" --tenant "${{ secrets.PP_TENANT_ID }}"
+      - name: Upload SPA site
+        run: pac pages upload-code-site --rootPath "${{ inputs.rootPath }}" --compiledPath "${{ inputs.compiledPath }}" --siteName "${{ inputs.siteName }}"

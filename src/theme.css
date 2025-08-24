@@ -1,0 +1,48 @@
+/* MEA-Fusion Theme Colors */
+:root {
+  /* MEA-Fusion Brand Colors */
+  --mea-red: #dc2626;        /* Company Red for titles and buttons */
+  --mea-red-light: #ef4444;  /* Lighter red for hover states */
+  --mea-red-dark: #b91c1c;   /* Darker red for active states */
+  
+  --mea-green: #16a34a;      /* Company Green for subtitles */
+  --mea-green-light: #22c55e; /* Lighter green for accents */
+  --mea-green-dark: #15803d; /* Darker green for emphasis */
+  
+  --mea-black: #000000;      /* Black for body text */
+  --mea-gray: #374151;       /* Dark gray for secondary text */
+  --mea-gray-light: #6b7280; /* Light gray for muted text */
+  
+  /* Background and surface colors */
+  --mea-white: #ffffff;
+  --mea-bg-light: #f9fafb;
+  --mea-bg-gradient: linear-gradient(135deg, var(--mea-red) 0%, var(--mea-green) 100%);
+  
+  /* Component specific colors */
+  --mea-card-bg: rgba(255, 255, 255, 0.95);
+  --mea-card-border: rgba(0, 0, 0, 0.1);
+  --mea-accent-bg: rgba(220, 38, 38, 0.1);
+  --mea-accent-border: rgba(220, 38, 38, 0.2);
+  
+  /* Typography */
+  --mea-font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+}
+
+/* Global styles using theme colors */
+body {
+  margin: 0;
+  padding: 0;
+  font-family: var(--mea-font-family);
+  color: var(--mea-black);
+}
+
+/* Utility classes for theme colors */
+.text-red { color: var(--mea-red); }
+.text-green { color: var(--mea-green); }
+.text-black { color: var(--mea-black); }
+.text-gray { color: var(--mea-gray); }
+.text-gray-light { color: var(--mea-gray-light); }
+
+.bg-red { background-color: var(--mea-red); }
+.bg-green { background-color: var(--mea-green); }
+.bg-gradient { background: var(--mea-bg-gradient); }

@@ -1,0 +1,164 @@
+name: Build & Deploy SPA (Dev)
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'src/**'
+      - 'public/**'
+      - 'package.json'
+      - 'package-lock.json'
+      - 'powerpages.config.json'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  deploy:
+    runs-on: windows-latest
+
+    steps:
+      - name: Configure Git for Windows
+        run: |
+          git config --global core.longpaths true
+          git config --global core.symlinks false
+
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - uses: actions/setup-dotnet@v4
+
+      - name: Install PAC CLI
+        run: dotnet tool update -g Microsoft.PowerApps.CLI.Tool
+
+      - name: PAC Auth
+        run: |
+          pac auth create --kind DATAVERSE `
+            --url "${{ secrets.ENV_URL }}" `
+            --applicationId "${{ secrets.PP_APP_ID }}" `
+            --clientSecret "${{ secrets.PP_APP_SECRET }}" `
+            --tenant "${{ secrets.PP_TENANT_ID }}"
+
+      - name: Download existing Power Pages site structure
+        run: |
+          Write-Host "📥 Downloading existing Power Pages site structure..."
+          Write-Host "Site ID: ${{ secrets.WEBSITE_ID }}"
+          Write-Host ""
+          
+          # Download to a temp folder first
+          pac pages download-code-site `
+            --environment "${{ secrets.ENV_URL }}" `
+            --path "./temp-download" `
+            --webSiteId "${{ secrets.WEBSITE_ID }}" `
+            --overwrite
+          
+          Write-Host "✅ Power Pages structure downloaded to temp folder"
+          Write-Host ""
+          Write-Host "📂 Moving .powerpages-site to root directory..."
+          
+          # Find the site folder (it will be named after the site)
+          $siteFolders = Get-ChildItem -Path "./temp-download" -Directory
+          if ($siteFolders.Count -gt 0) {
+            $siteFolder = $siteFolders[0].FullName
+            Write-Host "Found site folder: $($siteFolders[0].Name)"
+            
+            # Move the .powerpages-site folder to root
+            if (Test-Path "$siteFolder\.powerpages-site") {
+              Copy-Item -Path "$siteFolder\.powerpages-site" -Destination ".\.powerpages-site" -Recurse -Force
+              Write-Host "✅ .powerpages-site moved to root directory"
+            }
+            
+            # Clean up temp folder
+            Remove-Item -Path "./temp-download" -Recurse -Force
+            Write-Host "🧹 Cleaned up temp download folder"
+          } else {
+            Write-Host "❌ No site folder found in download"
+            exit 1
+          }
+          
+          Write-Host ""
+          Write-Host "📂 Root directory now contains:"
+          Get-ChildItem -Path "." | Where-Object { $_.Name -notlike ".*" -and $_.Name -ne "node_modules" } | ForEach-Object {
+            if ($_.PSIsContainer) {
+              Write-Host "📁 $($_.Name)/"
+            } else {
+              Write-Host "📄 $($_.Name)"
+            }
+          }
+          
+          if (Test-Path ".\.powerpages-site") {
+            Write-Host "✅ .powerpages-site folder is now in root directory (correct structure)"
+          } else {
+            Write-Host "❌ .powerpages-site folder not found in root"
+            exit 1
+          }
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build SPA (overlays on Power Pages structure)
+        run: |
+          Write-Host "🔨 Building SPA - this will overlay/merge with downloaded Power Pages structure..."
+          npm run build
+          Write-Host "✅ SPA build completed"
+
+      - name: Verify combined structure
+        run: |
+          Write-Host "� Verifying combined Power Pages + SPA structure..."
+          if (Test-Path "dist") {
+            Write-Host "✅ dist folder exists"
+            Write-Host ""
+            Write-Host "📂 dist/ contents:"
+            Get-ChildItem -Path "dist" -Recurse | ForEach-Object {
+              $relativePath = $_.FullName.Replace((Get-Location).Path + "\dist", "")
+              if ($_.PSIsContainer) {
+                Write-Host "📁 dist$relativePath/"
+              } else {
+                Write-Host "📄 dist$relativePath"
+              }
+            }
+          } else {
+            Write-Host "❌ dist folder not found!"
+            exit 1
+          }
+
+      - name: Deploy combined structure to Power Pages
+        run: |
+          Write-Host "� Deploying combined Power Pages + SPA structure..."
+          
+          # Read configuration from JSON file
+          $config = Get-Content "powerpages.config.json" | ConvertFrom-Json
+          $siteName = $config.siteName
+          $compiledPath = $config.compiledPath
+          $rootPath = $config.rootPath
+          
+          Write-Host "Configuration from powerpages.config.json:"
+          Write-Host "   Site Name: $siteName"
+          Write-Host "   Root Path: $rootPath"
+          Write-Host "   Compiled Path: $compiledPath"
+          Write-Host ""
+          
+          Write-Host "📤 Updating existing site using pac pages upload-code-site..."
+          Write-Host "Note: Now using upload-code-site with correct .powerpages-site structure in root"
+          
+          pac pages upload-code-site `
+            --rootPath "$rootPath" `
+            --compiledPath "$compiledPath" `
+            --siteName "$siteName"
+          
+          Write-Host ""
+          Write-Host "✅ Site update completed!"
+          Write-Host ""
+          Write-Host "📋 What was deployed:"
+          Write-Host "   • Downloaded existing Power Pages site structure to root"
+          Write-Host "   • Overlaid your MEA Fusion 3D SPA from dist/"
+          Write-Host "   • Updated the existing site (ID: ${{ secrets.WEBSITE_ID }}) with combined structure"
+          Write-Host ""
+          Write-Host "🔗 Next steps:"
+          Write-Host "   1. Go to https://make.powerpages.microsoft.com/"
+          Write-Host "   2. Your site should be automatically updated"
+          Write-Host "   3. Changes may take 5-15 minutes to appear due to CDN caching"

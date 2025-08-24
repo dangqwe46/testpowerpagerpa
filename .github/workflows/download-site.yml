@@ -1,0 +1,138 @@
+name: Download Power Pages Site Structure
+
+on:
+  workflow_dispatch:
+    inputs:
+      siteId:
+        description: 'Power Pages Site ID to download'
+        required: true
+        type: string
+        default: '73fecd8a-1bc4-4650-80af-0210bc64158d'
+      siteName:
+        description: 'Friendly name for the downloaded folder'
+        required: false
+        type: string
+        default: 'downloaded-site'
+      overwrite:
+        description: 'Overwrite existing files'
+        required: false
+        type: boolean
+        default: true
+
+permissions:
+  contents: write
+
+jobs:
+  download:
+    runs-on: windows-latest
+
+    steps:
+      - name: Configure Git for Windows
+        run: |
+          git config --global core.longpaths true
+          git config --global core.symlinks false
+
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+
+      - name: Install PAC CLI
+        run: dotnet tool update -g Microsoft.PowerApps.CLI.Tool
+
+      - name: PAC Auth
+        run: |
+          pac auth create --kind DATAVERSE `
+            --url "${{ secrets.ENV_URL }}" `
+            --applicationId "${{ secrets.PP_APP_ID }}" `
+            --clientSecret "${{ secrets.PP_APP_SECRET }}" `
+            --tenant "${{ secrets.PP_TENANT_ID }}"
+
+      - name: List available sites
+        run: |
+          Write-Host "📋 Available Power Pages sites:"
+          pac pages list
+          Write-Host ""
+          Write-Host "🎯 Downloading site ID: ${{ inputs.siteId }}"
+          Write-Host "📁 Target folder: . (root directory)"
+
+      - name: Download Power Pages site structure
+        run: |
+          Write-Host "📥 Downloading Power Pages site using download-code-site command..."
+          Write-Host "Downloading directly to root directory..."
+          
+          # Download the site directly to current directory
+          if ("${{ inputs.overwrite }}" -eq "true") {
+            pac pages download-code-site `
+              --environment "${{ secrets.ENV_URL }}" `
+              --path "." `
+              --webSiteId "${{ inputs.siteId }}" `
+              --overwrite
+          } else {
+            pac pages download-code-site `
+              --environment "${{ secrets.ENV_URL }}" `
+              --path "." `
+              --webSiteId "${{ inputs.siteId }}"
+          }
+
+      - name: Analyze downloaded structure
+        run: |
+          Write-Host "🔍 Analyzing downloaded site structure in root directory..."
+          
+          Write-Host "✅ Download completed!"
+          Write-Host ""
+          Write-Host "📂 Root directory contents:"
+          Get-ChildItem -Path "." | ForEach-Object {
+            if ($_.PSIsContainer) {
+              Write-Host "📁 $($_.Name)/"
+            } else {
+              $size = if ($_.Length -lt 1024) { "$($_.Length) B" } 
+                     elseif ($_.Length -lt 1MB) { "{0:N1} KB" -f ($_.Length / 1KB) }
+                     else { "{0:N1} MB" -f ($_.Length / 1MB) }
+              Write-Host "📄 $($_.Name) ($size)"
+            }
+          }
+          
+          Write-Host ""
+          Write-Host "📊 Summary:"
+          $files = Get-ChildItem -Path "." -File
+          $folders = Get-ChildItem -Path "." -Directory
+          Write-Host "   Files in root: $($files.Count)"
+          Write-Host "   Folders in root: $($folders.Count)"
+
+      - name: Commit downloaded structure to repository
+        run: |
+          Write-Host "💾 Committing downloaded site structure to repository..."
+          
+          git config --local user.email "action@github.com"
+          git config --local user.name "GitHub Action"
+          
+          # Add all new files (excluding existing tracked files)
+          git add .
+          
+          if (git diff --staged --quiet) {
+            Write-Host "No new files to commit"
+          } else {
+            $commitMessage = "Add downloaded Power Pages site structure to root (ID: ${{ inputs.siteId }})"
+            git commit -m "$commitMessage"
+            git push
+            Write-Host "✅ Site structure committed to repository"
+            Write-Host ""
+            Write-Host "🔗 Power Pages files are now in the root directory"
+          }
+
+      - name: Summary
+        run: |
+          Write-Host ""
+          Write-Host "🎉 Download completed successfully!"
+          Write-Host ""
+          Write-Host "📋 What was downloaded:"
+          Write-Host "   • Site ID: ${{ inputs.siteId }}"
+          Write-Host "   • Location: Root directory (.)"
+          Write-Host "   • Files committed to repository: Yes"
+          Write-Host ""
+          Write-Host "🔍 Next steps:"
+          Write-Host "   1. Browse the root directory in VS Code to see Power Pages files"
+          Write-Host "   2. Examine the file structure to understand Power Pages organization"
+          Write-Host "   3. Look for HTML, CSS, JS files and how they're organized"
+          Write-Host "   4. Compare with your SPA build output in the dist/ folder"
+          Write-Host "   5. Now you can use this as the --rootPath for upload-code-site!"
