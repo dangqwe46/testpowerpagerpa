@@ -47,7 +47,7 @@ export default function App() {
           color: 'var(--mea-green)',
           fontWeight: '600'
         }}>
-          Welcome to your Power Pages SPA Template
+          Power Pages SPA Template
         </p>
         <div style={{
           background: 'var(--mea-red)',
