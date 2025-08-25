@@ -162,3 +162,9 @@ jobs:
           Write-Host "   1. Go to https://make.powerpages.microsoft.com/"
           Write-Host "   2. Your site should be automatically updated"
           Write-Host "   3. Changes may take 5-15 minutes to appear due to CDN caching"
+      - name: Log PAC file if previous step failed
+        if: failure()
+        run: |
+          echo "The previous step failed. Logging PAC file content..."
+          echo ""
+          cat C:\Users\runneradmin\.dotnet\tools\.store\microsoft.powerapps.cli.tool\1.47.1\microsoft.powerapps.cli.tool\1.47.1\tools\net9.0\any\logs\pac-log.txt
