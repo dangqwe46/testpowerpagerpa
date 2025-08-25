@@ -166,5 +166,6 @@ jobs:
         if: failure()
         run: |
           echo "The previous step failed. Logging PAC file content..."
+          sleep 60  # Wait for 60 seconds
           echo ""
           cat C:\Users\runneradmin\.dotnet\tools\.store\microsoft.powerapps.cli.tool\1.47.1\microsoft.powerapps.cli.tool\1.47.1\tools\net9.0\any\logs\pac-log.txt
